@@ -25,7 +25,8 @@ export i,
     l,
     m,
     VNuc,
-    kinetic_integral
+    kinetic_integral,
+    ∇²
 
 """
 Compute the coefficients of the Hermite Gaussians for a product of two Cartesian Gaussians.
@@ -107,6 +108,21 @@ function overlap_integral(cg::ContractedGaussian{HermiteGaussian})
 
 end
 
+struct Kinetic end
+
+const ∇² = Kinetic()
+struct KineticState{T<:Union{Gaussian,Conj}}
+    state::T
+end
+
+state(k::KineticState) = k.state
+
+Base.:*(::Kinetic, g::T) where T <: Gaussian = KineticState{T}(g)
+Base.:*(g::T, ::Kinetic) where T <: Conj = KineticState{T}(g)
+Base.:*(k::KineticState{T}, g::S) where {T <: Conj, S <: Gaussian} = kinetic_integral(term(state(k)), g)
+Base.:*(g::S, k::KineticState{T}) where {T <: Gaussian, S <: Conj} = kinetic_integral(term(g), state(k))
+
+
 
 function kinetic_integral(p::ContractedGaussian, q::ContractedGaussian)
     sum(zip(coefficients(p), gaussians(p))) do (c_p, g_p)
@@ -124,6 +140,8 @@ function kinetic_integral(p::CartesianGaussian, q::CartesianGaussian)
     end
 end
 
+Base.:|(p::ContractedGaussian{HermiteGaussian}, q::ContractedGaussian{HermiteGaussian}) =
+    two_electron_integral(p, q)
 
 function two_electron_integral(p::ContractedGaussian{HermiteGaussian}, q::ContractedGaussian{HermiteGaussian})
     sum(zip(coefficients(p), gaussians(p))) do (c_p, g_p)
@@ -196,6 +214,8 @@ end
 struct VNuc
     atoms::Vector{<:AbstractAtom}
 end
+
+VNuc(atoms::Vararg{<:AbstractAtom}) = VNuc(collect(atoms))
 
 Base.:+(v_1::VNuc, v_2::VNuc) = VNuc(vcat(atoms(v_1), atoms(v_2)))
 

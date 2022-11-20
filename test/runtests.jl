@@ -23,7 +23,7 @@ using LinearAlgebra
 end
 
 
-b = load_basis("basis_set_bundle-json-bib/sto-3g.1.json")
+b = load_basis("sto-3g.1.json")
 
 @testset "single Helium one electron integral" begin
     a_1 = Atom(2, [0, 0, 0])
@@ -32,7 +32,8 @@ b = load_basis("basis_set_bundle-json-bib/sto-3g.1.json")
     g = first(basis)
     @test isapprox(g' * g, 1.0, atol=1e-7)
     @test isapprox(g' * VNuc([a_1]) * g, -3.3435116, atol=1e-6)
-    @test isapprox(kinetic_integral(g, g), 1.41176318, atol=1e-6)
+    # @test isapprox(kinetic_integral(g, g), 1.41176318, atol=1e-6)
+    @test isapprox(g' * ∇² * g, 1.41176318, atol=1e-6)
 end
 
 @testset "single Helium two electrons integral" begin
@@ -40,7 +41,7 @@ end
     shells = make_gaussians(b, a_1)
     basis = vcat(get_basis.(shells)...)
     g = first(basis)
-    @test isapprox(two_electron_integral(g * g, g * g), 1.05571294, atol=1e-6)
+    @test isapprox((g * g | g * g), 1.05571294, atol=1e-6)
 end
 
 
@@ -120,7 +121,7 @@ end
         0.00000000e+00 0.00000000e+00 0.00000000e+00 6.52518609e-02 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 1.00000000e+00 0.00000000e+00
         0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 6.52518609e-02 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 1.00000000e+00]
     @test isapprox(S, S_pyscf, atol=1e-7)
-    V = [b_1' * VNuc([a_1, a_2]) * b_2 for b_1 in basis, b_2 in basis]
+    V = [b_1' * VNuc(a_1, a_2) * b_2 for b_1 in basis, b_2 in basis]
 
     V_pyscf = [-3.52402727e+01 -4.58651187e+00 -3.01823789e-02 0.00000000e+00 0.00000000e+00 -1.40569394e-11 -1.37360319e-01 2.69705937e-01 0.00000000e+00 0.00000000e+00
         -4.58651187e+00 -6.77701348e+00 -3.51655057e-01 0.00000000e+00 0.00000000e+00 -1.37360319e-01 -8.54647455e-01 1.13623464e+00 0.00000000e+00 0.00000000e+00
@@ -135,7 +136,8 @@ end
 
     @test isapprox(V, V_pyscf, atol=1e-6)
 
-    K = [kinetic_integral(r, s) for r in basis, s in basis]
+    # K = [kinetic_integral(r, s) for r in basis, s in basis]
+    K = [r' * ∇² * s for r in basis, s in basis]
 
     K_pyscf = [1.58911217e+01 -8.58900137e-02 0.00000000e+00 0.00000000e+00 0.00000000e+00 -1.85343150e-10 -5.11807831e-03 5.31215290e-03 0.00000000e+00 0.00000000e+00
         -8.58900137e-02 4.72249973e-01 0.00000000e+00 0.00000000e+00 0.00000000e+00 -5.11807831e-03 -1.52318537e-02 -1.39734348e-02 0.00000000e+00 0.00000000e+00
