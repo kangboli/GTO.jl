@@ -2,8 +2,12 @@ using Dates
 using JSON
 
 export load_basis,
-make_gaussians
+make_gaussians,
+get_basis,
+BOHR_TO_ANGSTROM,
+charge
 
+const BOHR_TO_ANGSTROM = 0.529177248994098
 
 struct ElectronShell
     function_type::String
@@ -23,7 +27,7 @@ struct Element
     references::Vector{Reference}
 end
 
-struct Basis
+struct BasisIO
     revision_data::Date
     family::String
     role::String
@@ -62,7 +66,7 @@ function load_basis(filename::String)
         ) for (k, v) in basis_set_dict["elements"]
     )
 
-    Basis(
+    BasisIO(
         Date(basis_set_dict["revision_date"]),
         basis_set_dict["family"],
         basis_set_dict["role"],
@@ -79,7 +83,11 @@ function load_basis(filename::String)
     )
 end
 
-function make_gaussians(basis::Basis, atom::AbstractAtom)
+function make_gaussians(basis::BasisIO, atoms::Vararg{<:AbstractAtom})
+    vcat(map(a->make_gaussians(basis, a), atoms)...)
+end
+
+function make_gaussians(basis::BasisIO, atom::AbstractAtom)
     element = basis.elements[atomic_number(atom)]
     function make_shell(shell::ElectronShell)
         Dict(l => make_angular(shell, l) for l in shell.angular_momentum)
@@ -87,13 +95,16 @@ function make_gaussians(basis::Basis, atom::AbstractAtom)
 
     function make_angular(shell::ElectronShell, l::Int)
         map(filter(ls -> sum(ls) == l, collect(product(0:l, 0:l, 0:l)))) do (i, j, k)
-            ContractedGaussian(
-                shell.coefficients[:, l+1],
-                map(α -> CartesianGaussian(i, j, k, α, coordinates(atom), cache_number(atom)), shell.exponents),
-            )
+            cartesians = map(α -> CartesianGaussian(i, j, k, α, coordinates(atom)), shell.exponents)
+            # We make the choice to carried the normalization in the contraction coefficients.
+            contract(shell.coefficients[:, l+1] .* normalization.(cartesians), cartesians , true)
         end
     end
     make_shell.(element.electron_shells)
 end
 
+
+function get_basis(shell::Dict{Int, <:Any})
+    vcat(collect(values(shell))...)
+end
 
