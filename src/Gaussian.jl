@@ -69,6 +69,8 @@ function Base.iterate(cg::ContractedGaussian, i::Int)
     ((coefficients(cg)[i+1], gaussians(cg)[i+1]), i+1)
 end
 
+Base.length(cg::ContractedGaussian) = length(coefficients(cg))
+
 """
 The contracted basis sets don't seem to come normalized out of the box. So one may need to normalize them.
 """
@@ -126,6 +128,8 @@ set_c(g::AbstractGaussian, new_c::Vector{Float64})  = @set g.c = new_c
 # l(g::SphericalGaussian) = g.l
 # m(g::SphericalGaussian) = g.m
 
+const CCG = ContractedGaussian{CartesianGaussian}
+const CHG = ContractedGaussian{HermiteGaussian}
 const Gaussian = Union{AbstractGaussian, ContractedGaussian}
 
 struct Conj{T <: Gaussian}

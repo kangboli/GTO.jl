@@ -1,8 +1,6 @@
 using SpecialFunctions
 using LinearAlgebra
 using IterTools: product
-using FastGaussQuadrature
-using HypergeometricFunctions
 
 
 export i,
@@ -59,27 +57,20 @@ function gaussian_product(a::CartesianGaussian, b::CartesianGaussian)
     DJ = [product_coefficients(j(a), j(b), N, αp, pa[2], pb[2]) for N = 0:Nj]
     DK = [product_coefficients(k(a), k(b), N, αp, pa[3], pb[3]) for N = 0:Nk]
 
-    coefficients_and_gaussians = [
-        ((e * DI[ni+1] * DJ[nj+1] * DK[nk+1]), HermiteGaussian(ni, nj, nk, αp, p)) for
-        ni = 0:Ni, nj = 0:Nj, nk = 0:Nk
-    ] |> vec
+    coefficients_and_gaussians = map(product(0:Ni, 0:Nj, 0:Nk)) do (ni, nj, nk)
+        ((e * DI[ni+1] * DJ[nj+1] * DK[nk+1]), HermiteGaussian(ni, nj, nk, αp, p))
+    end |> vec
 
     contract(first.(coefficients_and_gaussians), last.(coefficients_and_gaussians))
 end
 
-Base.:*(a::ContractedGaussian{CartesianGaussian}, b::ContractedGaussian{CartesianGaussian}) = gaussian_product(a, b)
+Base.:*(a::CCG, b::CCG) = gaussian_product(a, b)
 
 """
 The product of two contracted Cartesian Gaussians.
 """
-function gaussian_product(a::ContractedGaussian{CartesianGaussian},
-    b::ContractedGaussian{CartesianGaussian})
-    contracted_gaussians = [
-        (c_a * c_b * gaussian_product(g_a, g_b))
-        for (c_a, g_a) in zip(coefficients(a), gaussians(a)),
-        (c_b, g_b) in zip(coefficients(b), gaussians(b))
-    ] |> vec
-    sum(contracted_gaussians)
+function gaussian_product(a::CCG, b::CCG)
+    [(c_a * c_b * gaussian_product(g_a, g_b)) for (c_a, g_a) in a, (c_b, g_b) in b] |> vec |> sum
 end
 
 # Overlap integral of a Hermite Gaussian, which arises from the product of two Gaussians.
@@ -93,20 +84,12 @@ function overlap_integral(g::HermiteGaussian)
     return (π / α(g))^(3 / 2)
 end
 
-Base.:*(a::Conj{T}, b::T) where {T} = overlap_integral(gaussian_product(term(a), b))
+Base.:*(a::Conj{T}, b::T) where {T} = overlap_integral(term(a) * b)
 
 """
 The overlap integral of two contracted Hermite Gaussians.
 """
-function overlap_integral(cg::ContractedGaussian{HermiteGaussian})
-    # sum(zip(coefficients(cg), gaussians(cg))) do (c, g)
-    #     c * overlap_integral(g)
-    # end
-    sum(cg) do (c, g)
-        c * overlap_integral(g)
-    end
-
-end
+overlap_integral(cg::CHG) = sum(((c, g),) -> c * overlap_integral(g), cg)
 
 struct Kinetic end
 
@@ -117,18 +100,16 @@ end
 
 state(k::KineticState) = k.state
 
-Base.:*(::Kinetic, g::T) where T <: Gaussian = KineticState{T}(g)
-Base.:*(g::T, ::Kinetic) where T <: Conj = KineticState{T}(g)
-Base.:*(k::KineticState{T}, g::S) where {T <: Conj, S <: Gaussian} = kinetic_integral(term(state(k)), g)
-Base.:*(g::S, k::KineticState{T}) where {T <: Gaussian, S <: Conj} = kinetic_integral(term(g), state(k))
+Base.:*(::Kinetic, g::T) where {T<:Gaussian} = KineticState{T}(g)
+Base.:*(g::T, ::Kinetic) where {T<:Conj} = KineticState{T}(g)
+Base.:*(k::KineticState{T}, g::S) where {T<:Conj,S<:Gaussian} = kinetic_integral(term(state(k)), g)
+Base.:*(g::S, k::KineticState{T}) where {T<:Gaussian,S<:Conj} = kinetic_integral(term(g), state(k))
 
 
 
 function kinetic_integral(p::ContractedGaussian, q::ContractedGaussian)
-    sum(zip(coefficients(p), gaussians(p))) do (c_p, g_p)
-        sum(zip(coefficients(q), gaussians(q))) do (c_q, g_q)
-            c_p * c_q * kinetic_integral(g_p, g_q)
-        end
+    sum(p) do (c_p, g_p)
+        sum(((c_q, g_q),) -> c_p * c_q * kinetic_integral(g_p, g_q), q)
     end
 end
 
@@ -140,14 +121,11 @@ function kinetic_integral(p::CartesianGaussian, q::CartesianGaussian)
     end
 end
 
-Base.:|(p::ContractedGaussian{HermiteGaussian}, q::ContractedGaussian{HermiteGaussian}) =
-    two_electron_integral(p, q)
+Base.:|(p::CHG, q::CHG) = two_electron_integral(p, q)
 
-function two_electron_integral(p::ContractedGaussian{HermiteGaussian}, q::ContractedGaussian{HermiteGaussian})
-    sum(zip(coefficients(p), gaussians(p))) do (c_p, g_p)
-        sum(zip(coefficients(q), gaussians(q))) do (c_q, g_q)
-            c_p * c_q * two_electron_integral(g_p, g_q)
-        end
+function two_electron_integral(p::CHG, q::CHG)
+    sum(p) do (c_p, g_p)
+        sum(((c_q, g_q),) -> c_p * c_q * two_electron_integral(g_p, g_q), q)
     end
 end
 
@@ -168,14 +146,11 @@ end
 function evaluate(g::HermiteGaussian, r::Vector{<:Real})
     x, y, z = r
     c1, c2, c3 = c(g)
-    Lambda(i(g), x - c1, α(g)) * Lambda(j(g), y - c2, α(g)) * Lambda(k(g), z - c3, α(g)) * exp(-α(g) * norm(r - c(g))^2)
+    Lambda(i(g), x - c1, α(g)) * Lambda(j(g), y - c2, α(g)) *
+    Lambda(k(g), z - c3, α(g)) * exp(-α(g) * norm(r - c(g))^2)
 end
 
-function evaluate(g::ContractedGaussian, r::Vector{<:Real})
-    sum(zip(coefficients(g), gaussians(g))) do (c, g)
-        c * evaluate(g, r)
-    end
-end
+evaluate(g::ContractedGaussian, r::Vector{<:Real}) = sum(((c, g),) -> c * evaluate(g, r), g)
 
 function hermite(N::Int, x::Number)
     N == 0 && return 1
@@ -233,30 +208,15 @@ state(v::VNucState) = v.state
 Base.:*(v::VNuc, g::T) where {T<:Gaussian} = VNucState{T}(v, g)
 Base.:*(g::T, v::VNuc) where {T<:Conj} = VNucState{T}(v, g)
 Base.:*(v::VNucState{T}, g::S) where {T<:Conj,S<:Gaussian} =
-    sum(atoms(v)) do a
-        nuclear_potential(term(state(v)) * g, a)
-    end
+    sum(a -> nuclear_potential(term(state(v)) * g, a), atoms(v))
+
 Base.:*(g::S, v::VNucState{T}) where {S<:Conj,T<:Gaussian} =
-    sum(atoms(v)) do a
-        nuclear_potential(term(g) * state(v), a)
-    end
+    sum(a -> nuclear_potential(term(g) * state(v), a), atoms(v))
 
 
-function nuclear_potential(cg::ContractedGaussian{HermiteGaussian}, a::AbstractAtom)
-    -charge(a) * sum(zip(coefficients(cg), gaussians(cg))) do (c, g)
-        c * nuclear_potential(g, coordinates(a))
-    end
+function nuclear_potential(cg::CHG, a::AbstractAtom)
+    -charge(a) * sum(((c, g),) -> c * nuclear_potential(g, coordinates(a)), cg)
 end
-
-# function nuclear_potential(cg_1::ContractedGaussian{CartesianGaussian}, cg_2::ContractedGaussian{CartesianGaussian}, a::AbstractAtom)
-#     v = 0
-#     for (c_1, g_1) in zip(coefficients(cg_1), gaussians(cg_1))
-#         for (c_2, g_2) in zip(coefficients(cg_2), gaussians(cg_2))
-#             v += c_1 * c_2 * nuclear_potential(g_1 * g_2, a)
-#         end
-#     end
-#     return v
-# end
 
 """
 The sign of `c(g) -r` is not explained in MD and I didn't pay attention to it.
@@ -290,32 +250,42 @@ One can also just do a quadrature, but hundreds of quadrature points are needed
 to converge.
 """
 function F(n::Int, T::Float64)
-    # x, w = gausslegendre(100 + 2n)
-    # f(u) = u^(2n) * exp(-T * u^2)
-    # return dot(w, f.(x)) / 2
-    # HypergeometricFunctions.M(n+1.5, n+0.5, -T) / (2n + 1)
+    abs(T) < 0.01 && return 1 / (1 + 2n) +
+                            T / (-3 - 2n) +
+                            T^2 / (2 * (5 + 2n)) -
+                            T^3 / (12 * (7 / 2 + n)) +
+                            T^4 / (48 * (9 / 2 + n)) -
+                            T^5 / (240 * (11 / 2 + n)) +
+                            T^6 / (1440 * (13 / 2 + n)) -
+                            T^7 / (10080 * (15 / 2 + n))
 
-    if abs(T) < 0.01
-        return 1 / (1 + 2n) +
-               T / (-3 - 2n) +
-               T^2 / (2 * (5 + 2n)) -
-               T^3 / (12 * (7 / 2 + n)) +
-               T^4 / (48 * (9 / 2 + n)) -
-               T^5 / (240 * (11 / 2 + n)) +
-               T^6 / (1440 * (13 / 2 + n)) -
-               T^7 / (10080 * (15 / 2 + n))
-    else
-        return 1 / 2 * gamma(1 / 2 + n) * first(gamma_inc(1 / 2 + n, T)) / T^(1 / 2 + n)
-    end
+    m = 1 / 2 + n
+    return 1 / 2 * gamma(m) * first(gamma_inc(m, T)) / T^(m)
 end
 
 
-    # t_0 = α(q) * (2 * (i(q) + j(q) + k(q)) + 3) * (p' * q)
-    # t_1 = -2 * α(q)^2 * (p' * set_i(q, i(q)+2) +
-    #                      p' * set_j(q, j(q)+2) +
-    #                      p' * set_k(q, k(q)+2))
-    # t_2 = -0.5 * (i(q) * (i(q) - 1) * (i(q) >= 2 && (p' * set_i(q, i(q) - 2))) + 
-    #               j(q) * (j(q) - 1) * (j(q) >= 2 && (p' * set_j(q, j(q) - 2))) +
-    #               k(q) * (k(q) - 1) * (k(q) >= 2 && (p' * set_k(q, k(q) - 2))))
+# t_0 = α(q) * (2 * (i(q) + j(q) + k(q)) + 3) * (p' * q)
+# t_1 = -2 * α(q)^2 * (p' * set_i(q, i(q)+2) +
+#                      p' * set_j(q, j(q)+2) +
+#                      p' * set_k(q, k(q)+2))
+# t_2 = -0.5 * (i(q) * (i(q) - 1) * (i(q) >= 2 && (p' * set_i(q, i(q) - 2))) + 
+#               j(q) * (j(q) - 1) * (j(q) >= 2 && (p' * set_j(q, j(q) - 2))) +
+#               k(q) * (k(q) - 1) * (k(q) >= 2 && (p' * set_k(q, k(q) - 2))))
 
-    # return t_0 + t_1 + t_2
+# return t_0 + t_1 + t_2
+
+# x, w = gausslegendre(100 + 2n)
+# f(u) = u^(2n) * exp(-T * u^2)
+# return dot(w, f.(x)) / 2
+# HypergeometricFunctions.M(n+1.5, n+0.5, -T) / (2n + 1)
+
+
+# function nuclear_potential(cg_1::ContractedGaussian{CartesianGaussian}, cg_2::ContractedGaussian{CartesianGaussian}, a::AbstractAtom)
+#     v = 0
+#     for (c_1, g_1) in zip(coefficients(cg_1), gaussians(cg_1))
+#         for (c_2, g_2) in zip(coefficients(cg_2), gaussians(cg_2))
+#             v += c_1 * c_2 * nuclear_potential(g_1 * g_2, a)
+#         end
+#     end
+#     return v
+# end

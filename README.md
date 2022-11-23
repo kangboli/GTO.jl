@@ -1,12 +1,30 @@
 # GTO
 
-This package aims to provide *flexible* abstraction for the Gaussian
-integrals at the cost of performance. The targeted audience is 
-method developers including myself, for whom performance is often a 
-secondary concern compared to flexibility. Specifically,
+## Introduction
 
-- The API provides what you naively want, not what is fast. 
-- Performance optimization will probably be done by caching and compression.
+This package aims to provide *flexible* abstractions for the Gaussian integrals
+temporarily at the expensive of performance. The targeted audience is method
+developers including myself, for whom performance is often a secondary concern
+compared to flexibility.
+
+The API of this package provides what a package user naively would want as
+oppose to what gives the optimal performance. For example, we provide the API
+for computing the integrals one at a time instead of having to evaluate in bulk.
+However, this does not necessarily mean sacrificing performance. Instead, one
+should think about this as abstracting away performance considerations from the
+users. For example, we could build a cache for the integrals, and bulk
+evaluation is an implementation detail for improving cache locality. This way,
+we could obtain similar performance without limiting the API to a few
+counterintuitive fast operations.
+
+The theory implemented is [McMurchie & Davidson 1978](https://doi.org/10.1016/0021-9991\(78\)90092-X)
+and [Boys 1949](https://royalsocietypublishing.org/doi/10.1098/rspa.1950.0036) 
+
+## Things that need work
+
+1. More extensive testing.
+2. Implement a cache for better performance.
+3. Full documentation (the readme seems sufficient).
 
 ## Usage
 
