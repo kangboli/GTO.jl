@@ -2,20 +2,15 @@
 
 ## Introduction
 
-This package aims to provide *flexible* abstractions for the Gaussian integrals
-temporarily at the expensive of performance. The targeted audience is method
-developers including myself, for whom performance is often a secondary concern
-compared to flexibility.
+This package aims to easy-to-use Gaussian integrals.  The code prioritizes
+flexibility over performance since the targeted audience is method developers
+including myself, for whom performance is usually a secondary concern compared
+to flexibility.
 
 The API of this package provides what a package user naively would want as
-oppose to what gives the optimal performance. For example, we provide the API
-for computing the integrals one at a time instead of having to evaluate in bulk.
-However, this does not necessarily mean sacrificing performance. Instead, one
-should think about this as abstracting away performance considerations from the
-users. For example, we could build a cache for the integrals, and bulk
-evaluation is an implementation detail for improving cache locality. This way,
-we could obtain similar performance without limiting the API to a few
-counterintuitive fast operations.
+oppose to what gives the optimal performance. This does not mean that the
+performance is completely sacrificed; it just means that it should be done
+at the cost of complicating the API.
 
 The theory implemented is [McMurchie & Davidson 1978](https://doi.org/10.1016/0021-9991\(78\)90092-X)
 and [Boys 1949](https://royalsocietypublishing.org/doi/10.1098/rspa.1950.0036) 

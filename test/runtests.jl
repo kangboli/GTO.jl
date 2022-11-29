@@ -160,7 +160,19 @@ end
     a_2 = Atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
     shells = make_gaussians(b, a_1, a_2)
     basis = vcat(get_basis.(shells)...)
-    ee = [two_electron_integral(p * q, r * s) for p in basis, q in basis, r in basis, s in basis]
+    @time ee = [two_electron_integral(p * q, r * s) for p in basis, q in basis, r in basis, s in basis];
+
+    println(norm(ee[:, :, 2, 8] - [
+            -1.06448086e-01 -2.60381307e-02 -2.69030571e-03 0.00000000e+00 0.00000000e+00 -3.33428598e-13 -8.29061965e-04 1.59215969e-03 0.00000000e+00 0.00000000e+00
+            -2.60381307e-02 -9.07528556e-02 -2.05205355e-02 0.00000000e+00 0.00000000e+00 -6.62730768e-04 -1.47207948e-02 2.05039510e-02 0.00000000e+00 0.00000000e+00
+            -2.69030571e-03 -2.05205355e-02 -9.58051801e-02 0.00000000e+00 0.00000000e+00 -1.26830154e-03 -1.98585064e-02 2.57210451e-02 0.00000000e+00 0.00000000e+00
+            0.00000000e+00 0.00000000e+00 0.00000000e+00 -8.81772359e-02 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 -5.95613347e-03 0.00000000e+00
+            0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 -8.81772359e-02 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 -5.95613347e-03
+            -3.33428598e-13 -6.62730768e-04 -1.26830154e-03 0.00000000e+00 0.00000000e+00 -8.22548345e-02 -2.03454800e-02 2.84014326e-03 0.00000000e+00 0.00000000e+00
+            -8.29061965e-04 -1.47207948e-02 -1.98585064e-02 0.00000000e+00 0.00000000e+00 -2.03454800e-02 -7.58669832e-02 2.19371417e-02 0.00000000e+00 0.00000000e+00
+            1.59215969e-03 2.05039510e-02 2.57210451e-02 0.00000000e+00 0.00000000e+00 2.84014326e-03 2.19371417e-02 -8.24325997e-02 0.00000000e+00 0.00000000e+00
+            0.00000000e+00 0.00000000e+00 0.00000000e+00 -5.95613347e-03 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 -7.25399010e-02 0.00000000e+00
+            0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 -5.95613347e-03 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00 -7.25399010e-02]))
     @test isapprox(ee[:, :, 2, 8], [
             -1.06448086e-01 -2.60381307e-02 -2.69030571e-03 0.00000000e+00 0.00000000e+00 -3.33428598e-13 -8.29061965e-04 1.59215969e-03 0.00000000e+00 0.00000000e+00
             -2.60381307e-02 -9.07528556e-02 -2.05205355e-02 0.00000000e+00 0.00000000e+00 -6.62730768e-04 -1.47207948e-02 2.05039510e-02 0.00000000e+00 0.00000000e+00
@@ -187,69 +199,12 @@ end
 end
 
 
-# a_2 = Atom(2, [2 / BOHR_TO_ANGSTROM,0,0])
-# # a_2 = cache!(c, Atom(2, [2,0,0]))
+@testset "test ERI" begin
+    a_1 = Atom(6, [0, 0, 0])
+    a_2 = Atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
+    shells = make_gaussians(b, a_1, a_2)
+    basis = vcat(get_basis.(shells)...)
+    gps = [r * s for r in basis for s in basis]
 
-# shells = vcat(map(a->make_gaussians(b, a, c), [a_1, a_2])...)
-# shells = vcat(map(a->make_gaussians(b, a, c), [a_1])...)
-# basis = vcat(get_basis.(shells)...)
-
-# # basis = [contract(
-# #     [0.7, 0.7],
-# #     [CartesianGaussian(0,0,0, 10, [0,0,0]),
-# #      CartesianGaussian(0,0,0, 5, [0,0,0])], true)]
-# # basis = [contract([0.1543289672914523, 0.5353281422703502, 0.4446345421753733], 
-# #          [CartesianGaussian(0, 0, 0, 22.72061597744982, [0.0, 0.0, 0.0], 1), 
-# #          CartesianGaussian(0, 0, 0, 4.138588561981291, [0.0, 0.0, 0.0], 2), 
-# #          CartesianGaussian(0, 0, 0, 1.1200635768638472, [0.0, 0.0, 0.0], 3)])]
-
-# [overlap_integral(gaussian_product(b_1, b_2)) for b_1 in basis, b_2 in basis]
-# [nuclear_potential(gaussian_product(b_1, b_2), a_1) for b_1 in basis, b_2 in basis]
-#  + [nuclear_potential(gaussian_product(b_1, b_2), coordinates(a_2)) for b_1 in basis, b_2 in basis]
-
-# overlap_integral(gaussian_product(basis[1],  basis[1]))
-# nuclear_potential(gaussian_product(basis[1],  basis[1]), coordinates(a_1))
-
-# overlap_integral(gaussian_product( basis[1],  basis[1]))
-
-
-# c = Cache()
-# a_1 = cache!(c, Atom(8, [0,0,0]))
-# a_2 = cache!(c, Atom(8, [1 / BOHR_TO_ANGSTROM, 0, 0]))
-# # a_2 = cache!(c, Atom(2, [2,0,0]))
-
-# # shells = vcat(map(a->make_gaussians(b, a, c), [a_1, a_2])...)
-# shells = vcat(map(a->make_gaussians(b, a, c), [a_1])...)
-# basis = vcat(get_basis.(shells)...)
-
-# [overlap_integral(gaussian_product(b_1, b_2)) for b_1 in basis, b_2 in basis]
-# [nuclear_potential(gaussian_product(b_1, b_2), a_1) for b_1 in basis, b_2 in basis] +
-# [nuclear_potential(gaussian_product(b_1, b_2), a_2) for b_1 in basis, b_2 in basis]
-
-# overlap_integral(gaussian_product(basis[1],  basis[1]))
-# nuclear_potential(gaussian_product(basis[1],  basis[1]), a_1)
-# overlap_integral(gaussian_product(basis[3],  basis[3]))
-# nuclear_potential(gaussian_product(basis[3],  basis[3]), a_1)
-# nuclear_potential(gaussian_product(basis[3],  basis[3]), a_2)
-
-
-# overlap_integral(gaussian_product( basis[1],  basis[1])
-
-
-# gaussian_product(basis[3],  basis[3])
-
-# # c = Cache()
-# # a_1 = cache!(c, Atom(8, [0,0,0]))
-# # a_2 = cache!(c, Atom(8, [20/BOHR_TO_ANGSTROM,0,0]))
-
-# # basis = [
-# #     # CartesianGaussian(0,0,0, 1, [0,0,0]),
-# #     #      CartesianGaussian(0,0,0, 3, [0,0,0]),
-# #          CartesianGaussian(1,0,0, 3, [0,0,0]),
-# #          CartesianGaussian(0,1,0, 3, [0,0,0]),
-# #          CartesianGaussian(0,0,1, 3, [0,0,0])
-# #          ];
-# # # [overlap_integral(gaussian_product(b_1, b_2)) for b_1 in basis, b_2 in basis]
-# # [nuclear_potential(gaussian_product(b_1, b_2), a_1) for b_1 in basis, b_2 in basis] 
-
-# # [evaluate(b, [1/BOHR_TO_ANGSTROM, 0, 0]) for b in basis]
+    eri_cpqr(gps)
+end

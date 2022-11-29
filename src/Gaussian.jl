@@ -1,6 +1,13 @@
 using Accessors
 
 export AbstractGaussian,
+    i,
+    j,
+    k,
+    α,
+    c,
+    gaussians,
+    coefficients,
     CartesianGaussian,
     HermiteGaussian,
     ContractedGaussian,
@@ -9,7 +16,12 @@ export AbstractGaussian,
     set_j,
     set_k,
     set_c,
-    set_α
+    set_α,
+    CCG,
+    CHG,
+    Gaussian,
+    Conj,
+    term
 
 
 abstract type AbstractGaussian end
@@ -111,22 +123,6 @@ set_α(g::AbstractGaussian, new_α::Int)  = @set g.α = new_α
 c(g::AbstractGaussian)::Vector{Float64} = g.c
 set_c(g::AbstractGaussian, new_c::Vector{Float64})  = @set g.c = new_c
 
-# Product of two (Contracted) Cartesian Gaussians
-
-# """
-# Spherical Gaussian.
-# Not yet implemented.
-
-# """
-# struct SphericalGaussian <: AbstractGaussian
-#     l::Int
-#     m::Int
-#     α::Float64
-#     c::Vector{Float64}
-# end
-
-# l(g::SphericalGaussian) = g.l
-# m(g::SphericalGaussian) = g.m
 
 const CCG = ContractedGaussian{CartesianGaussian}
 const CHG = ContractedGaussian{HermiteGaussian}
@@ -139,4 +135,3 @@ end
 Base.adjoint(g::ContractedGaussian) = Conj(g)
 Base.adjoint(g::T) where T <: AbstractGaussian = Conj{T}(g)
 term(c::Conj) = c.g
-

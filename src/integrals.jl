@@ -1,13 +1,10 @@
 using SpecialFunctions
 using LinearAlgebra
 using IterTools: product
+using ApproxFun
 
 
-export i,
-    j,
-    k,
-    α,
-    c,
+export 
     nuclear_potential,
     R_tensor,
     F,
@@ -18,10 +15,6 @@ export i,
     hermite,
     Lambda,
     evaluate,
-    gaussians,
-    coefficients,
-    l,
-    m,
     VNuc,
     kinetic_integral,
     ∇²
@@ -29,8 +22,8 @@ export i,
 """
 Compute the coefficients of the Hermite Gaussians for a product of two Cartesian Gaussians.
 """
-function product_coefficients(n_a, n_b, N, α, pa, pb)::Float64
-    d(n_a, n_b, N) = product_coefficients(n_a, n_b, N, α, pa, pb)
+function product_coefficients(n_a::Int, n_b::Int, N::Int, α::Float64, pa::Float64, pb::Float64)::Float64
+    d(n_a::Int, n_b::Int, N::Int) = product_coefficients(n_a, n_b, N, α, pa, pb)
     0 <= N <= n_a + n_b || return 0
     n_a != 0 && return let n_a = n_a - 1
         1 / (2α) * d(n_a, n_b, N - 1) + pa * d(n_a, n_b, N) + (N + 1) * d(n_a, n_b, N + 1)
@@ -56,12 +49,15 @@ function gaussian_product(a::CartesianGaussian, b::CartesianGaussian)
     DI = [product_coefficients(i(a), i(b), N, αp, pa[1], pb[1]) for N = 0:Ni]
     DJ = [product_coefficients(j(a), j(b), N, αp, pa[2], pb[2]) for N = 0:Nj]
     DK = [product_coefficients(k(a), k(b), N, αp, pa[3], pb[3]) for N = 0:Nk]
+    coefficients = Vector{Float64}()
+    hermites = Vector{HermiteGaussian}()
+    for (ni, nj, nk) in product(0:Ni, 0:Nj, 0:Nk)
+        push!(hermites, HermiteGaussian(ni, nj, nk, αp, p))
+        push!(coefficients, e * DI[ni+1] * DJ[nj+1] * DK[nk+1])
+    end 
 
-    coefficients_and_gaussians = map(product(0:Ni, 0:Nj, 0:Nk)) do (ni, nj, nk)
-        ((e * DI[ni+1] * DJ[nj+1] * DK[nk+1]), HermiteGaussian(ni, nj, nk, αp, p))
-    end |> vec
-
-    contract(first.(coefficients_and_gaussians), last.(coefficients_and_gaussians))
+    contract(coefficients, hermites)
+    # contract(first.(coefficients_and_gaussians), last.(coefficients_and_gaussians))
 end
 
 Base.:*(a::CCG, b::CCG) = gaussian_product(a, b)
@@ -77,7 +73,7 @@ end
 
 
 """
-The overlap integral of two Hermite Gaussians
+The overlap integral of a single Hermite Gaussian.
 """
 function overlap_integral(g::HermiteGaussian)
     (i(g) == 0 && j(g) == 0 && k(g) == 0) || return 0
@@ -87,7 +83,7 @@ end
 Base.:*(a::Conj{T}, b::T) where {T} = overlap_integral(term(a) * b)
 
 """
-The overlap integral of two contracted Hermite Gaussians.
+The overlap integral of two Cartesian Gaussians.
 """
 overlap_integral(cg::CHG) = sum(((c, g),) -> c * overlap_integral(g), cg)
 
@@ -130,9 +126,10 @@ function two_electron_integral(p::CHG, q::CHG)
 end
 
 function two_electron_integral(p::HermiteGaussian, q::HermiteGaussian)
-    λ = 2 * π^(5 / 2) * α(p)^(-1) * α(q)^(-1) * (α(p) + α(q))^(-1 / 2)
-    αc = α(p) * α(q) / (α(p) + α(q))
-    pq = c(p) - c(q)
+    αp, αq = α(p), α(q)
+    λ = 2 * π^(5 / 2)  * αp^(-1) * αq^(-1) * (αp + αq)^(-1 / 2)
+    αc = αp * αq /(αp + αq)
+    pq = p.c - q.c
     λ * (-1)^(i(q) + j(q) + k(q)) * R_tensor(i(p) + i(q), j(p) + j(q), k(p) + k(q), 0, αc, pq...)
 end
 
@@ -180,11 +177,6 @@ function normalization(g::CartesianGaussian)
     prod(n, [i(g), j(g), k(g)])
 end
 
-# function normalization(g::SphericalGaussian)
-#     n = l(g)
-#     (factorial(2n + 2) * π^(1/2) /
-#      (2^(2n+3) * factorial(n+1) * α^(n+3/2)))^(-1/2)
-# end
 
 struct VNuc
     atoms::Vector{<:AbstractAtom}
@@ -222,15 +214,15 @@ end
 The sign of `c(g) -r` is not explained in MD and I didn't pay attention to it.
 It turn into a bug that took me a day to fix.
 """
-function nuclear_potential(g::HermiteGaussian, r::Vector{<:Real})
+function nuclear_potential(g::HermiteGaussian, r::Vector{<:Real})::Float64
     return (2π / α(g)) * R_tensor(i(g), j(g), k(g), 0, α(g), (c(g) - r)...)
 end
 
-function R_tensor(i::Int, j::Int, k::Int, n::Int, α::Float64, a::Float64, b::Float64, c::Float64)
-    (i < 0 || j < 0 || k < 0) && return 0
-    T = α * (a^2 + b^2 + c^2)
+function R_tensor(i::Int, j::Int, k::Int, n::Int, α::Float64, a::Float64, b::Float64, c::Float64, 
+    T::Float64 = α * (a^2 + b^2 + c^2))::Float64
+    (i < 0 || j < 0 || k < 0) && return 0.0
     (i == j == k == 0) && return (-2α)^n * F(n, T)
-    R(i::Int, j::Int, k::Int, n::Int) = R_tensor(i, j, k, n, α, a, b, c)
+    R(i::Int, j::Int, k::Int, n::Int) = R_tensor(i, j, k, n, α, a, b, c, T)
     i == j == 0 && return c * R(0, 0, k - 1, n + 1) + (k - 1) * R(0, 0, k - 2, n + 1)
     i == 0 && return b * R(0, j - 1, k, n + 1) + (j - 1) * R(0, j - 2, k, n + 1)
     return a * R(i - 1, j, k, n + 1) + (i - 1) * R(i - 2, j, k, n + 1)
@@ -238,7 +230,6 @@ end
 
 
 """
-This is currently not properly done.
 The function is essential Γ(1/2 + n, T) / T^(1/2+n).
 The problem with this is the fake singularity at T = 0.
 THe current workaround is to Taylor expand near 0.
@@ -249,7 +240,7 @@ but the one provided in HypergeometricFunctions.jl has not worked well here.
 One can also just do a quadrature, but hundreds of quadrature points are needed
 to converge.
 """
-function F(n::Int, T::Float64)
+function F(n::Int, T::Float64)::Float64
     abs(T) < 0.01 && return 1 / (1 + 2n) +
                             T / (-3 - 2n) +
                             T^2 / (2 * (5 + 2n)) -
@@ -262,30 +253,3 @@ function F(n::Int, T::Float64)
     m = 1 / 2 + n
     return 1 / 2 * gamma(m) * first(gamma_inc(m, T)) / T^(m)
 end
-
-
-# t_0 = α(q) * (2 * (i(q) + j(q) + k(q)) + 3) * (p' * q)
-# t_1 = -2 * α(q)^2 * (p' * set_i(q, i(q)+2) +
-#                      p' * set_j(q, j(q)+2) +
-#                      p' * set_k(q, k(q)+2))
-# t_2 = -0.5 * (i(q) * (i(q) - 1) * (i(q) >= 2 && (p' * set_i(q, i(q) - 2))) + 
-#               j(q) * (j(q) - 1) * (j(q) >= 2 && (p' * set_j(q, j(q) - 2))) +
-#               k(q) * (k(q) - 1) * (k(q) >= 2 && (p' * set_k(q, k(q) - 2))))
-
-# return t_0 + t_1 + t_2
-
-# x, w = gausslegendre(100 + 2n)
-# f(u) = u^(2n) * exp(-T * u^2)
-# return dot(w, f.(x)) / 2
-# HypergeometricFunctions.M(n+1.5, n+0.5, -T) / (2n + 1)
-
-
-# function nuclear_potential(cg_1::ContractedGaussian{CartesianGaussian}, cg_2::ContractedGaussian{CartesianGaussian}, a::AbstractAtom)
-#     v = 0
-#     for (c_1, g_1) in zip(coefficients(cg_1), gaussians(cg_1))
-#         for (c_2, g_2) in zip(coefficients(cg_2), gaussians(cg_2))
-#             v += c_1 * c_2 * nuclear_potential(g_1 * g_2, a)
-#         end
-#     end
-#     return v
-# end
