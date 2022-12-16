@@ -44,7 +44,7 @@ CartesianGaussian(i,j,k,α,c) = CartesianGaussian(i,j,k,α,c,-1)
 cache_number(g::CartesianGaussian) = g.gaussian_cache_number
 
 function cache!(c::Cache, g::CartesianGaussian, atom::AbstractAtom)
-    g = @set g.gaussian_cache_number = genreate_cartesian_cache_number!(c)
+    g = Accessors.@set g.gaussian_cache_number = genreate_cartesian_cache_number!(c)
     push!(c.cartesian_normalization_factors, normalization(g))
     push!(c.gaussian_atom, atom)
     return g
@@ -113,15 +113,15 @@ end
 
 
 i(g::AbstractGaussian)::Int = g.i
-set_i(g::AbstractGaussian, new_i::Int)  = @set g.i = new_i
+set_i(g::AbstractGaussian, new_i::Int)  = Accessors.@set g.i = new_i
 j(g::AbstractGaussian)::Int = g.j
-set_j(g::AbstractGaussian, new_j::Int)  = @set g.j = new_j
+set_j(g::AbstractGaussian, new_j::Int)  = Accessors.@set g.j = new_j
 k(g::AbstractGaussian)::Int = g.k
-set_k(g::AbstractGaussian, new_k::Int)  = @set g.k = new_k
+set_k(g::AbstractGaussian, new_k::Int)  = Accessors.@set g.k = new_k
 α(g::AbstractGaussian)::Float64 = g.α
-set_α(g::AbstractGaussian, new_α::Int)  = @set g.α = new_α
+set_α(g::AbstractGaussian, new_α::Int)  = Accessors.@set g.α = new_α
 c(g::AbstractGaussian)::Vector{Float64} = g.c
-set_c(g::AbstractGaussian, new_c::Vector{Float64})  = @set g.c = new_c
+set_c(g::AbstractGaussian, new_c::Vector{Float64})  = Accessors.@set g.c = new_c
 
 
 const CCG = ContractedGaussian{CartesianGaussian}

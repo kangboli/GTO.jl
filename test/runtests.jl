@@ -1,4 +1,4 @@
-using GTO
+using GTO, WTP
 using Test
 using LinearAlgebra
 
@@ -26,7 +26,7 @@ end
 b = load_basis("sto-3g.1.json")
 
 @testset "single Helium one electron integral" begin
-    a_1 = Atom(2, [0, 0, 0])
+    a_1 = make_atom(2, [0, 0, 0])
     shells = make_gaussians(b, a_1)
     basis = vcat(get_basis.(shells)...)
     g = first(basis)
@@ -37,7 +37,7 @@ b = load_basis("sto-3g.1.json")
 end
 
 @testset "single Helium two electrons integral" begin
-    a_1 = Atom(2, [0, 0, 0])
+    a_1 = make_atom(2, [0, 0, 0])
     shells = make_gaussians(b, a_1)
     basis = vcat(get_basis.(shells)...)
     g = first(basis)
@@ -46,7 +46,7 @@ end
 
 
 @testset "single Carbon one electron integral" begin
-    a_1 = Atom(6, [0, 0, 0])
+    a_1 = make_atom(6, [0, 0, 0])
     shells = make_gaussians(b, a_1)
     basis = vcat(get_basis.(shells)...)
     S = [b_1' * b_2 for b_1 in basis, b_2 in basis]
@@ -75,7 +75,7 @@ end
 end
 
 @testset "single Carbon two electrons integral" begin
-    a_1 = Atom(6, [0, 0, 0])
+    a_1 = make_atom(6, [0, 0, 0])
     shells = make_gaussians(b, a_1)
     basis = vcat(get_basis.(shells)...)
 
@@ -104,8 +104,8 @@ end
 
 
 @testset "two Carbon one electron integral" begin
-    a_1 = Atom(6, [0, 0, 0])
-    a_2 = Atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
+    a_1 = make_atom(6, [0, 0, 0])
+    a_2 = make_atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
     shells = make_gaussians(b, a_1, a_2)
     basis = vcat(get_basis.(shells)...)
     S = [b_1' * b_2 for b_1 in basis, b_2 in basis]
@@ -156,8 +156,8 @@ end
 end
 
 @testset "two Carbon two electrons integral" begin
-    a_1 = Atom(6, [0, 0, 0])
-    a_2 = Atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
+    a_1 = make_atom(6, [0, 0, 0])
+    a_2 = make_atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
     shells = make_gaussians(b, a_1, a_2)
     basis = vcat(get_basis.(shells)...)
     @time ee = [two_electron_integral(p * q, r * s) for p in basis, q in basis, r in basis, s in basis];
@@ -199,12 +199,12 @@ end
 end
 
 
-@testset "test ERI" begin
-    a_1 = Atom(6, [0, 0, 0])
-    a_2 = Atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
-    shells = make_gaussians(b, a_1, a_2)
-    basis = vcat(get_basis.(shells)...)
-    gps = [r * s for r in basis for s in basis]
+# @testset "test ERI" begin
+#     a_1 = make_atom(6, [0, 0, 0])
+#     a_2 = make_atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
+#     shells = make_gaussians(b, a_1, a_2)
+#     basis = vcat(get_basis.(shells)...)
+#     gps = [r * s for r in basis for s in basis]
 
-    eri_cpqr(gps)
-end
+#     eri_cpqr(gps)
+# end

@@ -1,7 +1,7 @@
 using SpecialFunctions
 using LinearAlgebra
 using IterTools: product
-using ApproxFun
+# using ApproxFun
 
 
 export 
@@ -177,6 +177,15 @@ function normalization(g::CartesianGaussian)
     prod(n, [i(g), j(g), k(g)])
 end
 
+function normalization(cg::CHG)
+    sum(cg) do (c_1, g_1)
+        sum(cg) do (c_2, g_2)
+            i(g_1) == j(g_1) == k(g_1) == i(g_2) == j(g_2) == k(g_2) == 0 ?
+            c_1 * c_2 * (π / (α(g_1) + α(g_2)))^(3/2) : 0
+        end
+    end
+
+end
 
 struct VNuc
     atoms::Vector{<:AbstractAtom}
@@ -214,7 +223,7 @@ end
 The sign of `c(g) -r` is not explained in MD and I didn't pay attention to it.
 It turn into a bug that took me a day to fix.
 """
-function nuclear_potential(g::HermiteGaussian, r::Vector{<:Real})::Float64
+function nuclear_potential(g::HermiteGaussian, r::AbstractVector{<:Real})::Float64
     return (2π / α(g)) * R_tensor(i(g), j(g), k(g), 0, α(g), (c(g) - r)...)
 end
 

@@ -1,17 +1,16 @@
-export Atom, Cache, atomic_number, cache, coordinates, cache_number, cache!
+export Cache, cache, cache_number, cache!
 
 
-abstract type AbstractAtom end
+# abstract type AbstractAtom end
 
-atomic_number(a::AbstractAtom) = a.atomic_number
+# atomic_number(a::AbstractAtom) = a.atomic_number
 cache(a::AbstractAtom) = a.cache
 cache_number(a::AbstractAtom) = a.cache_number
-coordinates(a::AbstractAtom) = a.coordinates
+# coordinates(a::AbstractAtom) = a.coordinates
 charge(a::AbstractAtom) = atomic_number(a)
 
 mutable struct Cache
     n_atoms::Int
-
     n_cartesian::Int
     cartesian_normalization_factors::Vector{Float64}
     gaussian_atom::Vector{<:AbstractAtom}

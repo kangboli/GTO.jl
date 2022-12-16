@@ -1,6 +1,7 @@
 
 module GTO
 
+using WTP
 
 include("Cache.jl")
 include("Gaussian.jl")
