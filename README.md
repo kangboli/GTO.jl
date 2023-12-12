@@ -41,8 +41,8 @@ currently in Bohr by default, but I don't know if that is standard.
 It seems that `pyscf` uses Angstrom, which can be converted through `BOHR_TO_ANGSTROM`.
 
 ```julia
-a_1 = Atom(6, [0, 0, 0])
-a_2 = Atom(6, [2 / BOHR_TO_ANGSTROM, 0, 0])
+a_1 = make_atom(:C, 0, 0, 0)
+a_2 = make_atom(:C, 2 / BOHR_TO_ANGSTROM, 0, 0)
 ```
 
 To create AOs for the atom, load them from the basis set `b`.
