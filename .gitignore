@@ -3,3 +3,4 @@ theory
 statprof
 archive
 *.gz
+.vscode

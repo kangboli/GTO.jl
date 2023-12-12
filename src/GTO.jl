@@ -8,5 +8,6 @@ include("Gaussian.jl")
 include("Basis.jl")
 include("Integrals.jl")
 include("ERI.jl")
+include("Pretty.jl")
     
 end

@@ -5,7 +5,8 @@ export load_basis,
 make_gaussians,
 get_basis,
 BOHR_TO_ANGSTROM,
-charge
+charge,
+BasisIO
 
 const BOHR_TO_ANGSTROM = 0.529177248994098
 
