@@ -6,7 +6,7 @@ using WTP
 include("Cache.jl")
 include("Gaussian.jl")
 include("Basis.jl")
-include("Integrals.jl")
+include("Integral.jl")
 include("ERI.jl")
 include("Pretty.jl")
     
