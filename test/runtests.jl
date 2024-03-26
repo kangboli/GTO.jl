@@ -1,4 +1,4 @@
-using GTO, WTP
+using GTO
 using Test
 using LinearAlgebra
 

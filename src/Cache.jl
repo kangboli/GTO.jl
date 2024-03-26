@@ -1,13 +1,8 @@
-export Cache, cache, cache_number, cache!
+export Cache, cache, cache!
 
 
 # abstract type AbstractAtom end
 
-# atomic_number(a::AbstractAtom) = a.atomic_number
-cache(a::AbstractAtom) = a.cache
-cache_number(a::AbstractAtom) = a.cache_number
-# coordinates(a::AbstractAtom) = a.coordinates
-charge(a::AbstractAtom) = atomic_number(a)
 
 mutable struct Cache
     n_atoms::Int
@@ -23,15 +18,15 @@ genreate_cartesian_cache_number!(c::Cache) = c.n_cartesian += 1
 # The grand global cache.
 ggc = Cache()
 
-mutable struct Atom <: AbstractAtom
-    atomic_number::Int
-    coordinates::Vector{Float64}
-    cache_number::Int
-end
+# mutable struct Atom <: AbstractAtom
+#     atomic_number::Int
+#     coordinates::Vector{Float64}
+#     cache_number::Int
+# end
 
-function Atom(atomic_number::Int, coordinates::Vector{<:Real})
-    Atom(atomic_number, float.(coordinates), -1)
-end
+# function Atom(atomic_number::Int, coordinates::Vector{<:Real})
+#     Atom(atomic_number, float.(coordinates), -1)
+# end
 
 function cache!(cache::Cache, a::Atom)
     a.cache_number = generate_atom_cache_number!(cache)

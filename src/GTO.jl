@@ -1,8 +1,7 @@
 
 module GTO
 
-using WTP
-
+include("Atom.jl")
 include("Cache.jl")
 include("Gaussian.jl")
 include("Basis.jl")

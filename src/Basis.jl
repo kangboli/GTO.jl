@@ -23,7 +23,7 @@ struct Reference
     reference_description::String
 end
 
-struct Element
+struct BasisElement
     electron_shells::Vector{ElectronShell}
     references::Vector{Reference}
 end
@@ -33,7 +33,7 @@ struct BasisIO
     family::String
     role::String
     revision_description::String
-    elements::Dict{Int,Element}
+    elements::Dict{Int,BasisElement}
     names::Vector{String}
     name::String
     auxiliaries::Dict{String,<:Any}
@@ -50,7 +50,7 @@ function load_basis(filename::String)
                                     "basis_set_bundle-json-bib", filename))
 
     elements = Dict(
-        parse(Int, k) => Element(
+        parse(Int, k) => BasisElement(
             [
                 ElectronShell(
                     s["function_type"],
