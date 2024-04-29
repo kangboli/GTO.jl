@@ -4,7 +4,7 @@ using IterTools: product
 # using ApproxFun
 
 
-export 
+export
     nuclear_potential,
     R_tensor,
     F,
@@ -17,7 +17,9 @@ export
     evaluate,
     VNuc,
     kinetic_integral,
-    ∇²
+    ∇²,
+    pos_integral,
+    r2_integral
 
 """
 Compute the coefficients of the Hermite Gaussians for a product of two Cartesian Gaussians.
@@ -26,10 +28,10 @@ function product_coefficients(n_a::Int, n_b::Int, N::Int, α::Float64, pa::Float
     d(n_a::Int, n_b::Int, N::Int) = product_coefficients(n_a, n_b, N, α, pa, pb)
     0 <= N <= n_a + n_b || return 0
     n_a != 0 && return let n_a = n_a - 1
-        1 / (2α) * d(n_a, n_b, N - 1) + pa * d(n_a, n_b, N) + (N + 1) * d(n_a, n_b, N + 1)
+        d(n_a, n_b, N - 1) / (2α) + pa * d(n_a, n_b, N) + (N + 1) * d(n_a, n_b, N + 1)
     end
     n_b != 0 && return let n_b = n_b - 1
-        1 / (2α) * d(n_a, n_b, N - 1) + pb * d(n_a, n_b, N) + (N + 1) * d(n_a, n_b, N + 1)
+        d(n_a, n_b, N - 1) / (2α) + pb * d(n_a, n_b, N) + (N + 1) * d(n_a, n_b, N + 1)
     end
 
     return 1.0
@@ -44,7 +46,7 @@ function gaussian_product(a::CartesianGaussian, b::CartesianGaussian)
     αp = α(a) + α(b)
     p = (c(a) * α(a) + c(b) * α(b)) / αp
     pa, pb = p - c(a), p - c(b)
-    e = exp(-α(a) * α(b) / αp * norm(c(a) - c(b))^2)
+    e = exp(-α(a) * α(b) * norm(c(a) - c(b))^2 / αp)
     Ni, Nj, Nk = i(a) + i(b), j(a) + j(b), k(a) + k(b)
     DI = [product_coefficients(i(a), i(b), N, αp, pa[1], pb[1]) for N = 0:Ni]
     DJ = [product_coefficients(j(a), j(b), N, αp, pa[2], pb[2]) for N = 0:Nj]
@@ -54,7 +56,7 @@ function gaussian_product(a::CartesianGaussian, b::CartesianGaussian)
     for (ni, nj, nk) in product(0:Ni, 0:Nj, 0:Nk)
         push!(hermites, HermiteGaussian(ni, nj, nk, αp, p))
         push!(coefficients, e * DI[ni+1] * DJ[nj+1] * DK[nk+1])
-    end 
+    end
 
     contract(coefficients, hermites)
     # contract(first.(coefficients_and_gaussians), last.(coefficients_and_gaussians))
@@ -127,8 +129,8 @@ end
 
 function two_electron_integral(p::HermiteGaussian, q::HermiteGaussian)
     αp, αq = α(p), α(q)
-    λ = 2 * π^(5 / 2)  * αp^(-1) * αq^(-1) * (αp + αq)^(-1 / 2)
-    αc = αp * αq /(αp + αq)
+    λ = 2 * π^(5 / 2) * αp^(-1) * αq^(-1) * (αp + αq)^(-1 / 2)
+    αc = αp * αq / (αp + αq)
     pq = p.c - q.c
     λ * (-1)^(i(q) + j(q) + k(q)) * R_tensor(i(p) + i(q), j(p) + j(q), k(p) + k(q), 0, αc, pq...)
 end
@@ -181,7 +183,7 @@ function normalization(cg::CHG)
     sum(cg) do (c_1, g_1)
         sum(cg) do (c_2, g_2)
             i(g_1) == j(g_1) == k(g_1) == i(g_2) == j(g_2) == k(g_2) == 0 ?
-            c_1 * c_2 * (π / (α(g_1) + α(g_2)))^(3/2) : 0
+            c_1 * c_2 * (π / (α(g_1) + α(g_2)))^(3 / 2) : 0
         end
     end
 
@@ -227,8 +229,8 @@ function nuclear_potential(g::HermiteGaussian, r::AbstractVector{<:Real})::Float
     return (2π / α(g)) * R_tensor(i(g), j(g), k(g), 0, α(g), (c(g) - r)...)
 end
 
-function R_tensor(i::Int, j::Int, k::Int, n::Int, α::Float64, a::Float64, b::Float64, c::Float64, 
-    T::Float64 = α * (a^2 + b^2 + c^2))::Float64
+function R_tensor(i::Int, j::Int, k::Int, n::Int, α::Float64, a::Float64, b::Float64, c::Float64,
+    T::Float64=α * (a^2 + b^2 + c^2))::Float64
     (i < 0 || j < 0 || k < 0) && return 0.0
     (i == j == k == 0) && return (-2α)^n * F(n, T)
     R(i::Int, j::Int, k::Int, n::Int) = R_tensor(i, j, k, n, α, a, b, c, T)
@@ -262,3 +264,62 @@ function F(n::Int, T::Float64)::Float64
     m = 1 / 2 + n
     return 1 / 2 * gamma(m) * first(gamma_inc(m, T)) / T^(m)
 end
+
+function pos_integral(g_1::CartesianGaussian, g_2::CartesianGaussian)
+    s = overlap_integral(g_1 * g_2)
+    r = c(g_2) * s
+    g_i = set_i(g_2, i(g_2) + 1)
+    g_j = set_j(g_2, j(g_2) + 1)
+    g_k = set_k(g_2, k(g_2) + 1)
+    r[1] += overlap_integral(g_1 * g_i)
+    r[2] += overlap_integral(g_1 * g_j)
+    r[3] += overlap_integral(g_1 * g_k)
+    return r
+end
+
+function pos_integral(g_1::CCG, g_2::CCG)
+    sum(g_1) do (c_1, g_1)
+        sum(g_2) do (c_2, g_2)
+            c_1' * c_2 * pos_integral(g_1, g_2)
+        end
+    end
+end
+
+function r2_integral(g_1::CartesianGaussian, g_2::CartesianGaussian)
+    x = c(g_2)
+    integral = -norm(x)^2 * overlap_integral(g_1 * g_2)
+    integral += 2dot(x, pos_integral(g_1, g_2))
+    g_ii = set_i(g_2, i(g_2) + 2)
+    g_jj = set_j(g_2, j(g_2) + 2)
+    g_kk = set_k(g_2, k(g_2) + 2)
+    r2_g = sum(g -> overlap_integral(g_1 * g), [g_ii, g_jj, g_kk])
+    integral += r2_g
+    return integral
+end
+
+function r2_integral(g_1::CCG, g_2::CCG)
+    sum(g_1) do (c_1, g_1)
+        sum(g_2) do (c_2, g_2)
+            c_1' * c_2 * r2_integral(g_1, g_2)
+        end
+    end
+end
+
+
+
+#= struct Pos end
+
+struct PosState{T<:Union{Gaussian,Conj}}
+    state::T
+end
+
+Base.:*(::Pos, state::T) where T <: Gaussian = PosState{T}(state)
+Base.:*(state::T, ::Pos) where T <: Conj = PosState{T}(state)
+
+function Base.:*(v::PosState{T}, g::S) where {T<:Conj,S<:Gaussian} 
+end
+
+function Base.:*(g::S, v::PosState{T}) where {S<:Conj,T<:Gaussian} 
+end
+
+ =#
