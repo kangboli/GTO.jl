@@ -1,7 +1,6 @@
 
 module GTO
 
-include("Atom.jl")
 include("Cache.jl")
 include("Gaussian.jl")
 include("Basis.jl")

@@ -2,13 +2,10 @@ using Dates
 using JSON
 
 export load_basis,
-make_gaussians,
-get_basis,
-BOHR_TO_ANGSTROM,
-charge,
-BasisIO
+    make_gaussians,
+    get_basis,
+    BasisIO
 
-const BOHR_TO_ANGSTROM = 0.529177248994098
 
 struct ElectronShell
     function_type::String
@@ -46,8 +43,8 @@ end
 
 
 function load_basis(filename::String)
-    basis_set_dict = JSON.parsefile(joinpath(pathof(GTO)[1:end-11], 
-                                    "basis_set_bundle-json-bib", filename))
+    basis_set_dict = JSON.parsefile(joinpath(pathof(GTO)[1:end-11],
+        "basis_set_bundle-json-bib", filename))
 
     elements = Dict(
         parse(Int, k) => BasisElement(
@@ -85,27 +82,33 @@ function load_basis(filename::String)
 end
 
 function make_gaussians(basis::BasisIO, atoms::Vararg{<:AbstractAtom})
-    vcat(map(a->make_gaussians(basis, a), atoms)...)
+    vcat(map(a -> make_gaussians(basis, a), atoms)...)
 end
 
 function make_gaussians(basis::BasisIO, atom::AbstractAtom)
     element = basis.elements[atomic_number(atom)]
+
+    function make_angular(shell::ElectronShell, l::Int)
+        result = []
+        for (i, j, k) in collect(product(0:l, 0:l, 0:l))
+            i + j + k == l || continue
+            cartesians = map(α -> CartesianGaussian(i, j, k, α, coordinates(atom)), shell.exponents)
+            # We make the choice to carried the normalization in the contraction coefficients.
+            g = contract(shell.coefficients[:, l+1] .* normalization.(cartesians), cartesians, true)
+            push!(result, g)
+        end
+        return result
+    end
+
     function make_shell(shell::ElectronShell)
         Dict(l => make_angular(shell, l) for l in shell.angular_momentum)
     end
 
-    function make_angular(shell::ElectronShell, l::Int)
-        map(filter(ls -> sum(ls) == l, collect(product(0:l, 0:l, 0:l)))) do (i, j, k)
-            cartesians = map(α -> CartesianGaussian(i, j, k, α, coordinates(atom)), shell.exponents)
-            # We make the choice to carried the normalization in the contraction coefficients.
-            contract(shell.coefficients[:, l+1] .* normalization.(cartesians), cartesians , true)
-        end
-    end
     make_shell.(element.electron_shells)
 end
 
 
-function get_basis(shell::Dict{Int, <:Any})
+function get_basis(shell::Dict{Int,<:Any})
     vcat(collect(values(shell))...)
 end
 

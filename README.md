@@ -13,7 +13,9 @@ performance is completely sacrificed; it just means that it should be done
 at the cost of complicating the API.
 
 The theory implemented is [McMurchie & Davidson 1978](https://doi.org/10.1016/0021-9991\(78\)90092-X)
-and [Boys 1949](https://royalsocietypublishing.org/doi/10.1098/rspa.1950.0036) 
+and [Boys 1949](https://royalsocietypublishing.org/doi/10.1098/rspa.1950.0036).
+Some code is translated from  [this repo](https://github.com/jjgoings/McMurchie-Davidson/).
+
 
 ## Things that need work
 

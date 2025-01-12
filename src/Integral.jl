@@ -1,5 +1,6 @@
 using SpecialFunctions
 using LinearAlgebra
+using HypergeometricFunctions
 using IterTools: product
 # using ApproxFun
 
@@ -136,20 +137,20 @@ function two_electron_integral(p::HermiteGaussian, q::HermiteGaussian)
 end
 
 
-function evaluate(g::CartesianGaussian, r::Vector{<:Real})
+function evaluate(g::CartesianGaussian, r::AbstractVector)
     x, y, z = r
     c1, c2, c3 = c(g)
     (x - c1)^i(g) * (y - c2)^j(g) * (z - c3)^k(g) * exp(-α(g) * norm(r - c(g))^2)
 end
 
-function evaluate(g::HermiteGaussian, r::Vector{<:Real})
+function evaluate(g::HermiteGaussian, r::AbstractVector)
     x, y, z = r
     c1, c2, c3 = c(g)
     Lambda(i(g), x - c1, α(g)) * Lambda(j(g), y - c2, α(g)) *
     Lambda(k(g), z - c3, α(g)) * exp(-α(g) * norm(r - c(g))^2)
 end
 
-evaluate(g::ContractedGaussian, r::Vector{<:Real}) = sum(((c, g),) -> c * evaluate(g, r), g)
+evaluate(g::ContractedGaussian, r::AbstractVector) = sum(((c, g),) -> c * evaluate(g, r), g)
 
 function hermite(N::Int, x::Number)
     N == 0 && return 1
@@ -251,8 +252,8 @@ but the one provided in HypergeometricFunctions.jl has not worked well here.
 One can also just do a quadrature, but hundreds of quadrature points are needed
 to converge.
 """
-function F(n::Int, T::Float64)::Float64
-    abs(T) < 0.01 && return 1 / (1 + 2n) +
+function F(n::Int, T::Number)::Float64
+    #= abs(T) < 0.01 && return 1 / (1 + 2n) +
                             T / (-3 - 2n) +
                             T^2 / (2 * (5 + 2n)) -
                             T^3 / (12 * (7 / 2 + n)) +
@@ -262,7 +263,8 @@ function F(n::Int, T::Float64)::Float64
                             T^7 / (10080 * (15 / 2 + n))
 
     m = 1 / 2 + n
-    return 1 / 2 * gamma(m) * first(gamma_inc(m, T)) / T^(m)
+    return 1 / 2 * (gamma(m) * first(gamma_inc(m, T))) / T^(m) =#
+    _₁F₁(n+0.5,n+1.5,-T) / (2.0 * n + 1.0)
 end
 
 function pos_integral(g_1::CartesianGaussian, g_2::CartesianGaussian)
