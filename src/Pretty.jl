@@ -3,7 +3,7 @@ using Printf
 function Base.show(io::IO, g::CartesianGaussian)
     exp_string = @sprintf("%.3f", -α(g))
     center_string = "[" * join(map(n->@sprintf("%.3f", n), c(g)), ",") * "]"
-    print(io, "x^$(i(g)) y^$(j(g)) z^$(k(g)) exp($(exp_string) (r - $(center_string)))")
+    print(io, "x^$(i(g)) y^$(j(g)) z^$(k(g)) exp($(exp_string) |r - $(center_string)|²)")
 end
 
 function Base.show(io::IO, cg::ContractedGaussian)
