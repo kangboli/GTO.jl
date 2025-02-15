@@ -68,7 +68,7 @@ end
 A contracted Gaussian is just a sum of Gaussians.
 """
 struct ContractedGaussian{T <: AbstractGaussian}
-    coefficients::Vector{Float64}
+    coefficients::Vector{<:Number}
     gaussians::Vector{T}
 end
 
@@ -86,7 +86,7 @@ Base.length(cg::ContractedGaussian) = length(coefficients(cg))
 """
 The contracted basis sets don't seem to come normalized out of the box. So one may need to normalize them.
 """
-function contract(coefficients::Vector{Float64}, gaussians::Vector{CartesianGaussian}, normalize=false)
+function contract(coefficients::Vector{<:Number}, gaussians::Vector{CartesianGaussian}, normalize=false)
     cg = ContractedGaussian{CartesianGaussian}(coefficients, gaussians)
     if normalize
         normalization = overlap_integral(gaussian_product(cg, cg))

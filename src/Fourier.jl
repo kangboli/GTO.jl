@@ -1,4 +1,4 @@
-export ft_single, ft_single_0, ft_gaussian, ft_gaussian_simplified, ft_numerical, hermite_coefficient, hermite_factors, hermite_to_cart
+export ft_single, ft_single_0, ft_gaussian, ft_gaussian_slow, ft_numerical, hermite_coefficient, hermite_factors, hermite_to_cart
 
 """
 Fourier transform of Gaussian type orbitals.
@@ -26,7 +26,15 @@ function ft_single_2(c, α)
     return G -> (exp(-α * c^2 - (G + 2im * c * α)^2 / (4α)) * √(π) * (1 - (G + 2im * c * α)^2 / (2α))) / (2 * α^(3 / 2))
 end
 
-function ft_gaussian(g::CartesianGaussian)
+ft_gaussian(g::HermiteGaussian) = ft_gaussian(hermite_to_cart(g))
+
+function ft_gaussian(g::CCG)
+    return G -> sum(zip(g.coefficients, g.gaussians)) do (c, g)
+        c * ft_gaussian(g)(G)
+    end
+end
+
+function ft_gaussian_slow(g::CartesianGaussian)
     return G -> begin
         ft_single(i(g), c(g)[1], α(g))(G[1]) *
         ft_single(j(g), c(g)[2], α(g))(G[2]) *
@@ -36,7 +44,7 @@ end
 
 ft_simplified = [ft_single_0, ft_single_1, ft_single_2]
 
-function ft_gaussian_simplified(g::CartesianGaussian)
+function ft_gaussian(g::CartesianGaussian)
     return G -> begin
         ft_simplified[i(g)+1](c(g)[1], α(g))(G[1]) *
         ft_simplified[j(g)+1](c(g)[2], α(g))(G[2]) *
@@ -75,6 +83,9 @@ function hermite_factors(n::Int, α)
     return d
 end
 
+"""
+Convert a single Hermite Gaussian to a sum of Cartesian Guassians.
+"""
 function hermite_to_cart(hg::HermiteGaussian)
     d_i = hermite_factors(i(hg), α(hg))
     d_j = hermite_factors(j(hg), α(hg))
