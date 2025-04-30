@@ -1,7 +1,6 @@
 using SpecialFunctions
 using LinearAlgebra
 using HypergeometricFunctions
-using IterTools: product
 # using ApproxFun
 
 
@@ -54,7 +53,7 @@ function gaussian_product(a::CartesianGaussian, b::CartesianGaussian)
     DK = [product_coefficients(k(a), k(b), N, αp, pa[3], pb[3]) for N = 0:Nk]
     coefficients = Vector{Float64}()
     hermites = Vector{HermiteGaussian}()
-    for (ni, nj, nk) in product(0:Ni, 0:Nj, 0:Nk)
+    for ni in 0:Ni, nj in 0:Nj, nk in 0:Nk
         push!(hermites, HermiteGaussian(ni, nj, nk, αp, p))
         push!(coefficients, e * DI[ni+1] * DJ[nj+1] * DK[nk+1])
     end
