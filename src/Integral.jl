@@ -19,7 +19,9 @@ export
     kinetic_integral,
     ∇²,
     pos_integral,
-    r2_integral
+    r2_integral,
+    normalization,
+    @r_unroll
 
 """
 Compute the coefficients of the Hermite Gaussians for a product of two Cartesian Gaussians.
@@ -54,12 +56,13 @@ function gaussian_product(a::CartesianGaussian, b::CartesianGaussian)
     coefficients = Vector{Float64}()
     hermites = Vector{HermiteGaussian}()
     for ni in 0:Ni, nj in 0:Nj, nk in 0:Nk
+        coeff = e * DI[ni+1] * DJ[nj+1] * DK[nk+1]
+        abs(coeff) < 1e-12 && continue
         push!(hermites, HermiteGaussian(ni, nj, nk, αp, p))
         push!(coefficients, e * DI[ni+1] * DJ[nj+1] * DK[nk+1])
     end
 
     contract(coefficients, hermites)
-    # contract(first.(coefficients_and_gaussians), last.(coefficients_and_gaussians))
 end
 
 Base.:*(a::CCG, b::CCG) = gaussian_product(a, b)
@@ -68,7 +71,7 @@ Base.:*(a::CCG, b::CCG) = gaussian_product(a, b)
 The product of two contracted Cartesian Gaussians.
 """
 function gaussian_product(a::CCG, b::CCG)
-    [(c_a * c_b * gaussian_product(g_a, g_b)) for (c_a, g_a) in a, (c_b, g_b) in b] |> vec |> sum
+    [(c_a' * c_b * gaussian_product(g_a, g_b)) for (c_a, g_a) in a, (c_b, g_b) in b] |> vec |> sum
 end
 
 # Overlap integral of a Hermite Gaussian, which arises from the product of two Gaussians.
@@ -123,7 +126,7 @@ Base.:|(p::CHG, q::CHG) = two_electron_integral(p, q)
 
 function two_electron_integral(p::CHG, q::CHG)
     sum(p) do (c_p, g_p)
-        sum(((c_q, g_q),) -> c_p * c_q * two_electron_integral(g_p, g_q), q)
+        sum(((c_q, g_q),) -> c_p' * c_q * two_electron_integral(g_p, g_q), q)
     end
 end
 
@@ -168,9 +171,11 @@ end
 
 
 """
-The normalization factor of a Cartesian Gaussian.
+The normalization factor (1/|g|) of a Cartesian Gaussian.
 
-lookup the result from cache instead if a cache is given.
+Note that this is the inverse of the norm.
+g̃ = 1/|g| g
+
 """
 function normalization(g::CartesianGaussian)
     # haskey(cache.cartesian_normalization_factors, cache_number(g)) &&
@@ -229,27 +234,66 @@ function nuclear_potential(g::HermiteGaussian, r::AbstractVector{<:Real})::Float
     return (2π / α(g)) * R_tensor(i(g), j(g), k(g), 0, α(g), (c(g) - r)...)
 end
 
-function R_tensor(i::Int, j::Int, k::Int, n::Int, α::Float64, a::Float64, b::Float64, c::Float64,
-    T::Float64=α * (a^2 + b^2 + c^2))::Float64
+function R_tensor(i::Int, j::Int, k::Int, n::Int, α::Float64, a::Float64, b::Float64, c::Float64, T::Float64=α * (a^2 + b^2 + c^2))::Float64
     (i < 0 || j < 0 || k < 0) && return 0.0
     (i == j == k == 0) && return (-2α)^n * F(n, T)
-    R(i::Int, j::Int, k::Int, n::Int) = R_tensor(i, j, k, n, α, a, b, c, T)
-    i == j == 0 && return c * R(0, 0, k - 1, n + 1) + (k - 1) * R(0, 0, k - 2, n + 1)
-    i == 0 && return b * R(0, j - 1, k, n + 1) + (j - 1) * R(0, j - 2, k, n + 1)
-    return a * R(i - 1, j, k, n + 1) + (i - 1) * R(i - 2, j, k, n + 1)
+    i == j == 0 && return c * R_tensor(0, 0, k - 1, n + 1, α, a, b, c, T) + (k - 1) * R_tensor(0, 0, k - 2, n + 1, α::Float64, a, b, c, T)
+    i == 0 && return b * R_tensor(0, j - 1, k, n + 1, α, a, b, c, T) + (j - 1) * R_tensor(0, j - 2, k, n + 1, α::Float64, a, b, c, T)
+    return a * R_tensor(i - 1, j, k, n + 1, α, a, b, c, T) + (i - 1) * R_tensor(i - 2, j, k, n + 1, α::Float64, a, b, c, T)
+end
+
+l_max = 14
+generated_integrals = Array{Function,3}(undef, l_max, l_max, l_max)
+
+#= function R_tensor(i::Int, j::Int, k::Int, n::Int, α::Float64, a::Float64, b::Float64, c::Float64, T::Float64=α * (a^2 + b^2 + c^2))::Float64
+    @assert n == 0
+    GTO.generated_integrals[i+1, j+1, k+1](α, a, b, c, T)
+    #= GTO.gen_int(Val(i+1), Val(j+1), Val(k+1), α, a, b, c, T) =#
+end =#
+
+macro r_unroll(i, j, k, n, α, a, b, c, T)
+    (i < 0 || j < 0 || k < 0) && return esc(:(0.0))
+    (i == j == k == 0) && return esc(:((-2 * $α)^$n * F($n, $T)))
+
+    if i == j == 0
+        k_term = :($c * @r_unroll(0, 0, $(k - 1), $(n + 1), $α, $a, $b, $c, $T))
+        k > 1 || return esc(k_term)
+        return esc(:($k_term + $(k - 1) * @r_unroll(0, 0, $(k - 2), $(n + 1), $α, $a, $b, $c, $T)))
+    end
+
+    if i == 0
+        j_term = :(b * @r_unroll(0, $(j - 1), $k, $(n + 1), $α, $a, $b, $c, $T))
+        j > 1 || return esc(j_term)
+        return esc(:($j_term + $(j - 1) * @r_unroll(0, $(j - 2), $k, $(n + 1), $α, $a, $b, $c, $T)))
+    end
+
+    i_term = :($a * @r_unroll($(i - 1), $j, $k, $(n + 1), $α, $a, $b, $c, $T))
+
+    i > 1 || return esc(i_term)
+    return esc(:($i_term + $(i - 1) * @r_unroll($(i - 2), $j, $k, $(n + 1), $α, $a, $b, $c, $T)))
+end
+
+for i in 1:l_max, j in 1:l_max, k in 1:l_max
+    i + j + k <= l_max || continue
+    generated_integrals[i, j, k] = eval(:((α::Float64, a::Float64, b::Float64, c::Float64, T::Float64) -> @r_unroll($(i - 1), $(j - 1), $(k - 1), 0, α, a, b, c, T)))
+end
+
+function gen_int()
+    0.0
+end
+
+for i in 1:l_max, j in 1:l_max, k in 1:l_max
+    i + j + k <= l_max || continue
+    eval(:(
+        function GTO.gen_int(::Val{$i}, ::Val{$j}, ::Val{$k}, α::Float64, a::Float64, b::Float64, c::Float64, T::Float64)
+            @r_unroll($(i - 1), $(j - 1), $(k - 1), 0, α, a, b, c, T)
+        end
+    ))
 end
 
 
 """
-The function is essential Γ(1/2 + n, T) / T^(1/2+n).
-The problem with this is the fake singularity at T = 0.
-THe current workaround is to Taylor expand near 0.
-
-Other ways of evaluating this includes the Hyper Geometric functions,
-but the one provided in HypergeometricFunctions.jl has not worked well here.
-
-One can also just do a quadrature, but hundreds of quadrature points are needed
-to converge.
+The Boys function
 """
 function F(n::Int, T::Number)::Float64
     #= abs(T) < 0.01 && return 1 / (1 + 2n) +
@@ -263,7 +307,7 @@ function F(n::Int, T::Number)::Float64
 
     m = 1 / 2 + n
     return 1 / 2 * (gamma(m) * first(gamma_inc(m, T))) / T^(m) =#
-    _₁F₁(n+0.5,n+1.5,-T) / (2.0 * n + 1.0)
+    _₁F₁(n + 0.5, n + 1.5, -T) / (2.0 * n + 1.0)
 end
 
 function pos_integral(g_1::CartesianGaussian, g_2::CartesianGaussian)

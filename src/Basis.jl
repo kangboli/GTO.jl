@@ -4,7 +4,8 @@ using JSON
 export load_basis,
     make_gaussians,
     get_basis,
-    BasisIO
+    BasisIO,
+    generate_basis
 
 
 struct ElectronShell
@@ -82,33 +83,77 @@ function load_basis(filename::String)
 end
 
 function make_gaussians(basis::BasisIO, atoms::Vararg{<:AbstractAtom})
-    vcat(map(a -> make_gaussians(basis, a), atoms)...)
-end
 
-function make_gaussians(basis::BasisIO, atom::AbstractAtom)
-    element = basis.elements[atomic_number(atom)]
+    function make_gaussians_single(atom)
+        element = basis.elements[atomic_number(atom)]
 
-    function make_angular(shell::ElectronShell, l::Int)
-        result = []
-        for (i, j, k) in collect(product(0:l, 0:l, 0:l))
-            i + j + k == l || continue
-            cartesians = map(α -> CartesianGaussian(i, j, k, α, coordinates(atom)), shell.exponents)
-            # We make the choice to carried the normalization in the contraction coefficients.
-            g = contract(shell.coefficients[:, l+1] .* normalization.(cartesians), cartesians, true)
-            push!(result, g)
+        function make_shell(shell::ElectronShell)
+            if shell.function_type == "gto" || shell.function_type == "gto_cartesian"
+                Dict(l => make_angular(shell, l, atom) for l in shell.angular_momentum)
+            elseif shell.function_type == "gto_spherical"
+                Dict(l => make_spherical(shell, l, atom) for l in shell.angular_momentum)
+            else
+                error("function type $(shell.function_type) is not supported.")
+            end
         end
-        return result
+
+        make_shell.(element.electron_shells)
     end
 
-    function make_shell(shell::ElectronShell)
-        Dict(l => make_angular(shell, l) for l in shell.angular_momentum)
-    end
-
-    make_shell.(element.electron_shells)
+    vcat(map(make_gaussians_single, atoms)...)
 end
 
+make_shells = make_gaussians
+
+function make_angular(shell::ElectronShell, l::Int, atom::AbstractAtom)
+    result = []
+    for (i, j, k) in collect(Iterators.product(0:l, 0:l, 0:l))
+        i + j + k == l || continue
+        cartesians = map(α -> CartesianGaussian(i, j, k, α, coordinates(atom)), shell.exponents)
+        # We make the choice to carried the normalization in the contraction coefficients.
+        g = contract(shell.coefficients[:, findfirst(i -> i == l, shell.angular_momentum)] .* normalization.(cartesians), cartesians, true)
+        push!(result, g)
+    end
+    return result
+end
+
+function make_spherical(shell::ElectronShell, l::Int, atom::AbstractAtom)
+    result = []
+    #= for m in -l:l
+        sphericals = map(α -> SphericalGaussian(l, m, l, α, coordinates(atom)), shell.exponents)
+        g = contract(shell.coefficients[:, findfirst(i -> i == l, shell.angular_momentum)] .* normalization.(sphericals), sphericals)
+        push!(result, g)
+    end =#
+
+    spherical_sym = map(α -> SphericalGaussian(l, 0, l, α, coordinates(atom)), shell.exponents)
+    coeffs = shell.coefficients[:, findfirst(i -> i == l, shell.angular_momentum)] .* normalization.(spherical_sym)
+    push!(result, contract(coeffs, spherical_sym))
+
+    #  1/√2 (Y(l,m) ± Y(l,-m)) to make the basis real
+    for m in 1:l
+        postives = map(α -> SphericalGaussian(l, m, l, α, coordinates(atom)), shell.exponents)
+        netagives = map(α -> SphericalGaussian(l, -m, l, α, coordinates(atom)), shell.exponents)
+        #= coeffs = shell.coefficients[:, findfirst(i -> i == l, shell.angular_momentum)] .* normalization.(postives) =#
+        g_plus = contract(repeat(coeffs, 2) ./ sqrt(2), vcat(postives, netagives))
+        g_minus = contract(vcat(coeffs, -coeffs) ./ sqrt(-(Complex(2))), vcat(postives, netagives))
+        push!(result, g_plus)
+        push!(result, g_minus)
+    end
+    return result
+end
 
 function get_basis(shell::Dict{Int,<:Any})
     vcat(collect(values(shell))...)
 end
 
+function generate_basis(basis_set::BasisIO, molecule::Vararg{AbstractAtom})
+    basis = []
+    for a in molecule
+        shells = make_shells(basis_set, a)
+
+        gaussian_layer(l) = vcat(map(sh -> get(sh, l, []), shells)...)
+        gaussians = vcat(map(gaussian_layer, 0:7)...)
+        append!(basis, gaussians)
+    end
+    return basis
+end
