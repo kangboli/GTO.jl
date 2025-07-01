@@ -1,6 +1,6 @@
 export spherical_to_cartesian, to_contracted_gaussian, SphericalGaussian
 
-using SphericalHarmonics, Memoize
+using SphericalHarmonics
 
 struct SphericalGaussian <: AbstractGaussian
     l::Int
