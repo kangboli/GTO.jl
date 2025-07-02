@@ -57,9 +57,9 @@ function gaussian_product(a::CartesianGaussian, b::CartesianGaussian)
     hermites = Vector{HermiteGaussian}()
     for ni in 0:Ni, nj in 0:Nj, nk in 0:Nk
         coeff = e * DI[ni+1] * DJ[nj+1] * DK[nk+1]
-        abs(coeff) < 1e-12 && continue
+        #= abs(coeff) < 1e-12 && continue =#
         push!(hermites, HermiteGaussian(ni, nj, nk, αp, p))
-        push!(coefficients, e * DI[ni+1] * DJ[nj+1] * DK[nk+1])
+        push!(coefficients, coeff)
     end
 
     contract(coefficients, hermites)

@@ -104,7 +104,10 @@ Unnormalized Gaussians: g(i, j, k, αₙ)
 """
 gaussians(g::ContractedGaussian) = g.gaussians
 
-Base.iterate(cg::ContractedGaussian) = ((first(coefficients(cg)), first(gaussians(cg))), 1)
+function Base.iterate(cg::ContractedGaussian) 
+    length(cg) >= 1 && return ((first(coefficients(cg)), first(gaussians(cg))), 1)
+    return nothing
+end
 function Base.iterate(cg::ContractedGaussian, i::Int)
     i >= length(coefficients(cg)) && return nothing
     ((coefficients(cg)[i+1], gaussians(cg)[i+1]), i + 1)
@@ -133,7 +136,7 @@ function combine(ccg::ContractedGaussian{CartesianGaussian})
         d[g] += c
     end
 
-    filter!(((_, c),) -> abs(c) > 1e-10, d)
+    #= filter!(((_, c),) -> abs(c) > 1e-10, d) =#
 
     return CCG(collect(values(d)), collect(keys(d)))
 end
