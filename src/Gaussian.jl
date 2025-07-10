@@ -136,7 +136,7 @@ function combine(ccg::ContractedGaussian{CartesianGaussian})
         d[g] += c
     end
 
-    #= filter!(((_, c),) -> abs(c) > 1e-10, d) =#
+    filter!(((_, c),) -> abs(c) > 1e-10, d)
 
     return CCG(collect(values(d)), collect(keys(d)))
 end

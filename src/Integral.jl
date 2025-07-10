@@ -65,12 +65,16 @@ function gaussian_product(a::CartesianGaussian, b::CartesianGaussian)
     contract(coefficients, hermites)
 end
 
-Base.:*(a::CCG, b::CCG) = gaussian_product(a, b)
+Base.:*(a::Gaussian, b::Gaussian) = gaussian_product(a, b)
 
 """
 The product of two contracted Cartesian Gaussians.
 """
-function gaussian_product(a::CCG, b::CCG)
+function gaussian_product(a::Gaussian, b::Gaussian)
+    wrap(g::Gaussian) = g
+    wrap(g::CartesianGaussian) = ContractedGaussian([1.0], [g])
+    a, b = wrap(a), wrap(b)
+
     [(c_a' * c_b * gaussian_product(g_a, g_b)) for (c_a, g_a) in a, (c_b, g_b) in b] |> vec |> sum
 end
 
@@ -122,12 +126,19 @@ function kinetic_integral(p::CartesianGaussian, q::CartesianGaussian)
     end
 end
 
-Base.:|(p::CHG, q::CHG) = two_electron_integral(p, q)
+Base.:|(p::Gaussian, q::Gaussian) = two_electron_integral(p, q)
 
 function two_electron_integral(p::CHG, q::CHG)
     sum(p) do (c_p, g_p)
         sum(((c_q, g_q),) -> c_p' * c_q * two_electron_integral(g_p, g_q), q)
     end
+end
+
+function two_electron_integral(q::Gaussian, p::Gaussian)
+    to_chg(g::HermiteGaussian) = HermiteGaussian([1.0], [g])
+    to_chg(g::CHG) = g
+    to_chg(g::Union{CartesianGaussian,CCG}) = CartesianGaussian(0, 0, 0, 0, [0, 0, 0]) * g
+    two_electron_integral(to_chg(p), to_chg(q))
 end
 
 function two_electron_integral(p::HermiteGaussian, q::HermiteGaussian)
