@@ -27,7 +27,7 @@ struct BasisElement
 end
 
 struct BasisIO
-    revision_data::Date
+    revision_date::Date
     family::String
     role::String
     revision_description::String
@@ -45,7 +45,7 @@ end
 
 function load_basis(filename::String)
     basis_set_dict = JSON.parsefile(joinpath(pathof(GTO)[1:end-11],
-        "basis_set_bundle-json-bib", filename))
+        "basis_set_bundle-json-bib", filename), dicttype=Dict{String, Any})
 
     elements = Dict(
         parse(Int, k) => BasisElement(
